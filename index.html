@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="pink" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <title>Hiragana/katakana Speed Tester</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="text-white min-h-screen flex flex-col items-center p-8">
+
+  <h1 class="glow-title font-bold mb-6">Hiragana/katakana Speed Tester</h1>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: radial-gradient(ellipse at top left, #41083c, #5a1052, #581e58);
+      font-family: 'Segoe UI', sans-serif;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 20% 30%, rgba(255, 0, 255, 0.1), transparent 40%),
+                  radial-gradient(circle at 70% 60%, rgba(255, 255, 255, 0.05), transparent 30%);
+      animation: pulseBackground 20s infinite alternate;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .glow-title {
+      font-size: 3.5rem;
+      font-weight: bold;
+      color: transparent;
+      animation: glowPulse 2s infinite alternate;
+      transition: transform 0.3s ease;
+      text-shadow: 0 0 10px #ff00ff63, 0 0 20px #ff00ff71, 0 0 40px #ff149160;
+      background: linear-gradient(90deg, #ff00ff, #ff1493, #00ffff);
+      background-size: 200% auto;
+      background-clip: text;
+      -webkit-background-clip: text;
+      animation: textGradient 4s ease infinite alternate;
+      display: inline-block;
+    }
+    @keyframes glowPulse {
+      0% {
+        text-shadow: 0 0 5px #ff00ff, 0 0 10px #ff1493, 0 0 20px #ff1493;
+      }
+      100% {
+        text-shadow: 0 0 15px #ff00ff, 0 0 30px #ff00ff, 0 0 45px #ff1493;
+      }
+    }
+    .glow-title:hover {
+      transform: scale(1.05);
+    }
+    @keyframes textGradient {
+      0% { background-position: 0% center; }
+      100% { background-position: 200% center; }
+    }
+
+    .section-title {
+      font-size: 1.75rem;
+      font-weight: 600;
+      background: linear-gradient(to right, #ff66cc, #66ccff);
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+
+    a {
+      text-decoration: none;
+    }
+    #results {
+      background-color: #1f2937;
+      color: white;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.05);
+      max-height: 240px;
+      overflow-y: auto;
+    }
+
+    #results li {
+      color: white;
+    }
+
+    #answer {
+      background-color: #1f2937;
+      color: white;
+      border-color: #4b5563;
+    }
+
+    #answer::placeholder {
+      color: #9ca3af;
+    }
+  </style>
+
+  <div class="space-x-4 mb-6 flex flex-wrap gap-4 justify-center items-center">
+    <label class="text-lg flex items-center space-x-2">
+      <span>Rounds:</span>
+      <input
+        id="rounds"
+        type="number"
+        value="10"
+        min="1"
+        class="w-20 px-3 py-1 border border-gray-600 rounded bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+      />
+    </label>
+    <label class="text-lg flex items-center space-x-2">
+      <input
+        type="checkbox"
+        id="noRepeat"
+        class="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+      />
+      <span>No Repeats</span>
+    </label>
+    <button onclick="startTest()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Start</button>
+    <button onclick="document.getElementById('fileInput').click()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">Import Chars</button>
+    <input type="file" id="fileInput" accept=".json" class="hidden" onchange="importKanaList(event)">
+    <button id="toggleLoadedBtn" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition">hide/show Loaded</button>
+    <button id="exportResultsBtn" class="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700 transition">Export Results</button>
+<button id="resetBtn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">Reset</button>
+  </div>
+
+  <div id="loadedKanaContainer" class="w-full max-w-xl max-h-40 overflow-auto bg-gray-900 rounded p-4 mb-6 hidden text-white font-mono text-sm">
+  </div>
+
+  <div class="text-7xl font-bold my-6" id="kana">?</div>
+
+  <input
+    id="answer"
+    placeholder="Type romaji..."
+    onkeypress="checkEnter(event)"
+    class="text-center text-xl px-4 py-2 border border-gray-600 rounded shadow-sm bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-400 mb-4"
+  />
+
+  <ul id="results" class="w-full max-w-xl bg-white rounded shadow p-4 space-y-2 text-left"></ul>
+
+  <canvas id="chart" class="mt-10 w-full max-w-2xl hidden"></canvas>
+
+  <div id="summary" class="mt-6 text-lg font-medium"></div>
+
+  <canvas id="particles" class="fixed inset-0 z-0 pointer-events-none"></canvas>
+
+  <script>
+  const canvas = document.getElementById("particles");
+  const ctx = canvas.getContext("2d");
+  let particles = [];
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  function initParticles(count = 120) {
+    particles = Array.from({ length: count }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 1.5 + 0.5,
+      speed: Math.random() * 0.4 + 0.1,
+      angle: Math.random() * Math.PI * 2
+    }));
+  }
+
+  function drawParticles() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.07)";
+    for (let p of particles) {
+      p.x += Math.cos(p.angle) * p.speed;
+      p.y += Math.sin(p.angle) * p.speed;
+      if (p.x > canvas.width || p.x < 0 || p.y > canvas.height || p.y < 0) {
+        p.x = Math.random() * canvas.width;
+        p.y = 0;
+      }
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    requestAnimationFrame(drawParticles);
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    initParticles();
+    drawParticles();
+  });
+  </script>
+
+  <script>
+    let kanaList = [
+      { kana: "あ", romaji: "a" }, { kana: "い", romaji: "i" },
+      { kana: "う", romaji: "u" }, { kana: "え", romaji: "e" },
+      { kana: "お", romaji: "o" }, { kana: "か", romaji: "ka" },
+      { kana: "き", romaji: "ki" }, { kana: "く", romaji: "ku" },
+      { kana: "け", romaji: "ke" }, { kana: "こ", romaji: "ko" }
+    ];
+
+    let questions = [];
+    let currentKana = null;
+    let currentIndex = 0;
+    let startTime = 0;
+    const results = [];
+
+    const loadedKanaContainer = document.getElementById("loadedKanaContainer");
+    const toggleLoadedBtn = document.getElementById("toggleLoadedBtn");
+
+    function updateLoadedKanaDisplay() {
+      if (kanaList.length === 0) {
+        loadedKanaContainer.innerHTML = "<i>No kana loaded</i>";
+        return;
+      }
+      loadedKanaContainer.innerHTML = kanaList
+        .map(k => `${k.kana} : ${k.romaji}`)
+        .join(" | ");
+    }
+
+    function mergeKanaList(newList) {
+      const kanaMap = new Map(kanaList.map(k => [k.kana, k]));
+      for (const item of newList) {
+        kanaMap.set(item.kana, item);
+      }
+      kanaList = Array.from(kanaMap.values());
+    }
+
+    function importKanaList(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (Array.isArray(data) && data.every(c => c.kana && c.romaji)) {
+            mergeKanaList(data);
+            alert("Kana list imported and merged successfully!");
+            updateLoadedKanaDisplay();
+          } else {
+            alert("Invalid JSON format. Make sure it's an array of {kana, romaji}.");
+          }
+        } catch (err) {
+          alert("Failed to parse JSON.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function startTest() {
+      const rounds = parseInt(document.getElementById("rounds").value);
+      const noRepeat = document.getElementById("noRepeat").checked;
+      let pool = [...kanaList];
+      questions = [];
+
+      for (let i = 0; i < rounds; i++) {
+        if (noRepeat && pool.length === 0) break;
+        const idx = Math.floor(Math.random() * pool.length);
+        questions.push(pool[idx]);
+        if (noRepeat) pool.splice(idx, 1);
+      }
+
+      results.length = 0;
+      currentIndex = 0;
+      document.getElementById("results").innerHTML = "";
+      document.getElementById("chart").classList.add("hidden");
+      document.getElementById("summary").textContent = "";
+      nextKana();
+    }
+
+    function nextKana() {
+      if (currentIndex >= questions.length) {
+        showChart();
+        return;
+      }
+      currentKana = questions[currentIndex];
+      startTime = performance.now();
+      document.getElementById("kana").textContent = currentKana.kana;
+      document.getElementById("answer").value = "";
+      document.getElementById("answer").focus();
+    }
+
+    function checkEnter(e) {
+      if (e.key === "Enter") {
+        const input = document.getElementById("answer").value.trim().toLowerCase();
+        const now = performance.now();
+        const time = ((now - startTime) / 1000).toFixed(2);
+        const isCorrect = input === currentKana.romaji;
+
+        results.push({
+          kana: currentKana.kana,
+          romaji: currentKana.romaji,
+          input,
+          time: parseFloat(time),
+          correct: isCorrect
+        });
+
+        const li = document.createElement("li");
+        li.innerHTML = `<span class="font-bold">${currentKana.kana}</span> (${currentKana.romaji}) – You typed: "<span class="${isCorrect ? 'text-green-600' : 'text-red-600'}">${input}</span>" – ${time}s ${!isCorrect ? `→ Correct: ${currentKana.romaji}` : '✅'}`;
+        document.getElementById("results").appendChild(li);
+
+        currentIndex++;
+        nextKana();
+      }
+    }
+
+    function showChart() {
+      const chartEl = document.getElementById("chart");
+      chartEl.classList.remove("hidden");
+
+      const ctx = chartEl.getContext('2d');
+      const labels = results.map(r => r.kana);
+      const data = results.map(r => r.time);
+      const colors = results.map(r => r.correct ? "#34D399" : "#F87171");
+
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Response Time (s)',
+            data,
+            backgroundColor: colors
+          }]
+        },
+        options: {
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+
+      const correct = results.filter(r => r.correct).length;
+      const total = results.length;
+      const avgTime = (
+        results.reduce((sum, r) => sum + r.time, 0) / total
+      ).toFixed(2);
+
+      document.getElementById("kana").textContent = "Finished!";
+      document.getElementById("summary").textContent = `✅ Accuracy: ${correct}/${total} (${((correct / total) * 100).toFixed(1)}%) – ⏱ Avg time: ${avgTime}s`;
+    }
+
+    toggleLoadedBtn.addEventListener("click", () => {
+      loadedKanaContainer.classList.toggle("hidden");
+    });
+
+    updateLoadedKanaDisplay();
+    document.getElementById("exportResultsBtn").addEventListener("click", () => {
+      if (results.length === 0) {
+        alert("No results to export!");
+        return;
+      }
+      const dataStr = JSON.stringify(results, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "hiragana_speed_trainer_results.json";
+      document.body.appendChild(a);
+      a.click();
+
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      questions = [];
+      currentKana = null;
+      currentIndex = 0;
+      results.length = 0;
+
+      document.getElementById("kana").textContent = "?";
+      document.getElementById("answer").value = "";
+      document.getElementById("results").innerHTML = "";
+      document.getElementById("summary").textContent = "";
+      document.getElementById("chart").classList.add("hidden");
+
+      document.getElementById("answer").blur();
+    });
+  </script>
+</body>
+</html>
